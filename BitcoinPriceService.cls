@@ -1,45 +1,46 @@
-public class BitcoinPriceService {
-    private static final String API_KEY = '613e59181a6f24e216cf196299b1b402f61130d10407ca66e999a12448bb0445';
+@RestResource(urlMapping='/bitcoinprice')
+global class BitcoinPriceService {
+    
+    private static final String API_URL = 'https://api.coindesk.com/v1/bpi/currentprice.json';
+    
+    @HttpPost
+    global static void fetchBitcoinPrice() {
+        try {
+            Http http = new Http();
+            HttpRequest request = new HttpRequest();
+            request.setEndpoint(API_URL);
+            request.setMethod('GET');
 
-    public void fetchAndStoreBitcoinPrice() {
-        HttpRequest req = new HttpRequest();
-        
-        req.setEndpoint('https://data-api.cryptocompare.com/index/cc/v1/latest/tick?market=ccix&instruments=BTC-USD&api_key=' + API_KEY);
-        
-        req.setMethod('GET');
-        
-        Http http = new Http();
-        HttpResponse res = http.send(req);
-        
-        if (res.getStatusCode() == 200) {
-      
-            Map<String, Object> response = (Map<String, Object>)JSON.deserializeUntyped(res.getBody());
-            
-            Map<String, Object> data = (Map<String, Object>)response.get('Data');
-            
-            Map<String, Object> btcData = (Map<String, Object>)data.get('BTC-USD');
-            
-            Decimal price = (Decimal)btcData.get('VALUE');  // The Bitcoin price
-            Long timestamp = (Long)btcData.get('VALUE_LAST_UPDATE_TS');  // The timestamp of the last price update
-            
-            Bitcoin_Price__c bitcoinPrice = new Bitcoin_Price__c();
-            
-            bitcoinPrice.Name = 'BTC-USD Price';
-            
-            bitcoinPrice.Price__c = price;
-            
-            bitcoinPrice.Timestamp__c = String.valueOf(timestamp);
-            
+            HttpResponse response = http.send(request);
+            System.debug('Response: ' + response.getBody());
 
-            
-            try {
-                insert bitcoinPrice;
-                System.debug('Successfully inserted Bitcoin price record');
-            } catch (DmlException e) {
-                System.debug('Error inserting Bitcoin price record: ' + e.getMessage());
+            if (response.getStatusCode() == 200) {
+                Map<String, Object> responseData = (Map<String, Object>) JSON.deserializeUntyped(response.getBody());
+                Map<String, Object> bpi = (Map<String, Object>) responseData.get('bpi');
+                Map<String, Object> usd = (Map<String, Object>) bpi.get('USD');
+                
+                Decimal price = (Decimal) usd.get('rate_float'); 
+                String currence = String.valueOf(usd.get('code')); 
+                Datetime timestamp = Datetime.now();
+                
+                Bitcoin_Price__c btcPrice = new Bitcoin_Price__c();
+                btcPrice.Price__c = price; 
+                btcPrice.Currency__c = currence; 
+                btcPrice.Timestamp__c = timestamp;
+                
+                insert btcPrice;
+                System.debug('Bitcoin price saved: ' + btcPrice);
+
+                RestResponse res = RestContext.response;
+                res.statusCode = 201;
+                res.responseBody = Blob.valueOf('{"success": "Bitcoin price saved", "price": ' + price + '}');
+            } else {
+                RestContext.response.statusCode = 500;
+                RestContext.response.responseBody = Blob.valueOf('{"error": "Failed to fetch data"}');
             }
-        } else {
-            System.debug('Error fetching data from CryptoCompare: ' + res.getStatus());
+        } catch (Exception e) {
+            RestContext.response.statusCode = 500;
+            RestContext.response.responseBody = Blob.valueOf('{"error": "' + e.getMessage() + '"}');
         }
     }
 }
