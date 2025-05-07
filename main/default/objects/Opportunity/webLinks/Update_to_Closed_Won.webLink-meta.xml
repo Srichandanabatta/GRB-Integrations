@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WebLink xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Update_to_Closed_Won</fullName>
+    <availability>online</availability>
+    <displayType>massActionButton</displayType>
+    <linkType>javascript</linkType>
+    <masterLabel>Update to Closed Won</masterLabel>
+    <openType>onClickJavaScript</openType>
+    <protected>false</protected>
+    <requireRowSelection>true</requireRowSelection>
+    <url>{!REQUIRESCRIPT(&quot;/soap/ajax/51.0/connection.js&quot;)}
+{!REQUIRESCRIPT(&quot;/soap/ajax/51.0/apex.js&quot;)}
+
+var selectedRecords = {!GETRECORDIDS($ObjectType.Opportunity)};
+
+if (selectedRecords.length === 0) {
+    alert(&quot;Please select at least one Opportunity.&quot;);
+} else {
+    var result = confirm(&quot;Are you sure you want to update the selected Opportunities to &apos;Closed Won&apos;?&quot;);
+    if (result) {
+        sforce.apex.execute(
+            &quot;MassUpdateOpportunityController&quot;, 
+            &quot;updateOpportunities&quot;, 
+            { opportunityIds: selectedRecords }
+        );
+        alert(&quot;Opportunities updated successfully!&quot;);
+        window.location.reload(); // Refresh the List View
+    }
+}</url>
+</WebLink>
